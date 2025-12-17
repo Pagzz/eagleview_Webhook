@@ -1,6 +1,8 @@
 import { createClient } from "@base44/sdk";
 
-// datapacks you want
+/**
+ * Datapacks we care about
+ */
 const SELECTED_DATAPACKS = [
   "RoofCondition",
   "Measurements",
@@ -14,11 +16,12 @@ const SELECTED_DATAPACKS = [
 ];
 
 export default async function handler(req, res) {
-  try {
-    if (req.method !== "POST") {
-      return res.status(200).json({ status: "ok" }); // health check
-    }
+  // Health check (GET / HEAD)
+  if (req.method !== "POST") {
+    return res.status(200).json({ status: "ok" });
+  }
 
+  try {
     const body = req.body;
 
     if (!body || !Array.isArray(body.products)) {
@@ -27,13 +30,17 @@ export default async function handler(req, res) {
 
     const { requestId, products } = body;
 
+    // Filter only datapacks we want
     const filtered = products.filter(p =>
       SELECTED_DATAPACKS.includes(p.type)
     );
 
+    // Init Base44 client
     const base44 = createClient({
       apiKey: process.env.BASE44_API_KEY
     });
+
+    let processed = 0;
 
     for (const product of filtered) {
       if (!product.propertyId) continue;
@@ -44,15 +51,20 @@ export default async function handler(req, res) {
         enrichment_status: "complete",
         last_enrichment_date: new Date().toISOString()
       });
+
+      processed++;
     }
 
     return res.status(200).json({
       success: true,
-      processed: filtered.length
+      processed
     });
 
   } catch (err) {
-    console.error("[Webhook Error]", err);
-    return res.status(500).json({ error: err.message });
+    console.error("[EagleView Webhook Error]", err);
+    return res.status(500).json({
+      error: "Webhook processing failed",
+      message: err.message
+    });
   }
 }
