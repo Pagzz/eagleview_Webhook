@@ -1,0 +1,32 @@
+import { createClient } from '@base44/sdk'; // or your import style
+
+export default async function handler(req, res) {
+  try {
+    const body = req.body;
+
+    // optional: verify EagleView webhook signature
+    // if (!verifyEagleViewSignature(req)) return res.status(403).send("Forbidden");
+
+    // extract only the properties/datapacks you want
+    const { requestId, products } = body;
+
+    // initialize Base44 client with API key
+    const base44 = createClient({ apiKey: process.env.BASE44_API_KEY });
+
+    // For each property, update Base44 entity
+    for (const product of products) {
+      const propertyId = product.propertyId; // adjust to match your payload
+      await base44.entities.Property.update(propertyId, {
+        eagleview_report_id: requestId,
+        eagleview_report: product,
+        enrichment_status: "complete",
+        last_enrichment_date: new Date().toISOString()
+      });
+    }
+
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+}
